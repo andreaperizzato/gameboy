@@ -27,6 +27,8 @@ var ld = map[uint16]Command{
 	0x2E: ldInto8Const(0x2E, "L", accessL()),
 	// LD A,E
 	0x7B: ldInto8From8(0x7B, "A", "E", accessA(), accessE()),
+	// LD A,B
+	0x78: ldInto8From8(0x78, "A", "B", accessA(), accessB()),
 	// LD C,A
 	0x4F: ldInto8From8(0x4F, "C", "A", accessC(), accessA()),
 	// LD D,A

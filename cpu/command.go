@@ -20,20 +20,21 @@ type Command struct {
 
 var commands map[uint16]Command
 
+func addCommands(dest, cs map[uint16]Command) {
+	for k, v := range cs {
+		if _, found := dest[k]; found {
+			panic(fmt.Sprintf("duplicate opcode 0x%04X", k))
+		}
+		dest[k] = v
+	}
+}
+
 func init() {
 	commands = map[uint16]Command{}
-	for k, v := range alu {
-		commands[k] = v
-	}
-	for k, v := range bit {
-		commands[k] = v
-	}
-	for k, v := range jump {
-		commands[k] = v
-	}
-	for k, v := range ld {
-		commands[k] = v
-	}
+	addCommands(commands, alu)
+	addCommands(commands, bit)
+	addCommands(commands, jump)
+	addCommands(commands, ld)
 }
 
 type ram []uint8

@@ -21,6 +21,8 @@ var alu = map[uint16]Command{
 	0x23: inc16(0x23, "HL", accessHL()),
 	// CP n
 	0xFE: cpConst(0xFE),
+	// CP (HL)
+	0xBE: cp16Ref(0xBE, "HL", accessHL()),
 	// DEC A
 	0x3D: dec8(0x3D, "A", accessA()),
 	// DEC B
@@ -33,6 +35,8 @@ var alu = map[uint16]Command{
 	0x1D: dec8(0x1D, "E", accessE()),
 	// SUB B
 	0x90: sub8(0x90, "B", accessB()),
+	// ADD (HL)
+	0x86: add16Ref(0x86, "HL", accessHL()),
 }
 
 type regGetter8 func(r *Registers) uint8
@@ -100,6 +104,23 @@ func cpConst(opcode uint16) Command {
 	}
 }
 
+func cp16Ref(opcode uint16, srcRegName string, src accessor16Creator) Command {
+	return Command{
+		OpCode:     opcode,
+		Cycles:     8,
+		ArgsLength: 0,
+		Label:      fmt.Sprintf("CP (%s)", srcRegName),
+		Run: func(r *Registers, m memory.Memory, args []uint8) {
+			addr := src(r).Get()
+			n := m.GetByte(addr)
+			r.SetFlagZ(r.A == n)
+			r.SetFlagN(true)
+			r.SetFlagH((0x0F & r.A) < (0x0F & n))
+			r.SetFlagC(r.A < n)
+		},
+	}
+}
+
 func dec8(opcode uint16, regName string, reg accessor8Creator) Command {
 	return Command{
 		OpCode:     opcode,
@@ -132,6 +153,24 @@ func sub8(opcode uint16, regName string, src accessor8Creator) Command {
 			r.SetFlagN(true)
 			r.SetFlagC(v > a)
 			r.SetFlagH((0x0F & v) > (0x0F & a))
+		},
+	}
+}
+
+func add16Ref(opcode uint16, regName string, src accessor16Creator) Command {
+	return Command{
+		OpCode:     opcode,
+		Cycles:     8,
+		ArgsLength: 0,
+		Label:      fmt.Sprintf("ADD (%s)", regName),
+		Run: func(r *Registers, m memory.Memory, args []uint8) {
+			v := m.GetByte(src(r).Get())
+			a := r.A
+			r.A = a + v
+			r.SetFlagZ(r.A == 0x00)
+			r.SetFlagN(false)
+			r.SetFlagH((0x0F&v)+(0x0F&a) > 0x0F)
+			r.SetFlagC(uint16(v)+uint16(a) > 0xFF)
 		},
 	}
 }
