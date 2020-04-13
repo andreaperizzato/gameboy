@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"log"
 	"math"
+	"time"
 
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
@@ -63,9 +64,16 @@ func (s *Screen) run() {
 	)
 
 	for !win.Closed() {
+		start := time.Now()
+
 		spr := pixel.NewSprite(pixel.Picture(s.picture), pixel.R(0, 0, screenWidth, screenHeight))
 		spr.Draw(s.window, pixel.IM)
 		s.window.Update()
+
+		diff := time.Now().Sub(start) - time.Duration(time.Second/60)
+		if diff < 0 {
+			time.Sleep(-diff)
+		}
 	}
 }
 

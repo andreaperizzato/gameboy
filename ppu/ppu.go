@@ -86,10 +86,9 @@ func (p *PPU) Tick() {
 			return
 		}
 		// Put a pixel from the FIFO on the screen if we have any.
-		if pxColor, ok := p.Fetcher.Q.Pop(); ok {
-			p.Screen.Write(pxColor)
-			p.x++
-		}
+		pxColor, _ := p.Fetcher.Q.Pop()
+		p.Screen.Write(pxColor)
+		p.x++
 		if p.x == 160 {
 			p.Screen.HBlank()
 			p.state = hBlank
@@ -136,7 +135,7 @@ func (p *PPU) Tick() {
 		if p.ticks == 456 {
 			p.ticks = 0
 			p.ly.Set(p.ly.Get() + 1)
-			if p.ly.Get() == 144 {
+			if p.ly.Get() == 153 {
 				p.ly.Set(0)
 				p.state = oamSearch
 			}

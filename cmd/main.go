@@ -39,6 +39,9 @@ func main() {
 		for {
 			cpux.Tick()
 			ppux.Tick()
+			ppux.Tick()
+			ppux.Tick()
+			ppux.Tick()
 		}
 	}()
 	scrx.Start()
