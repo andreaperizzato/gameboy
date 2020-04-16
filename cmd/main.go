@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/andreaperizzato/gameboy/apu"
 	"github.com/andreaperizzato/gameboy/cpu"
 	"github.com/andreaperizzato/gameboy/memory"
 	"github.com/andreaperizzato/gameboy/ppu"
@@ -34,6 +35,7 @@ func main() {
 	cpux := cpu.NewGBC(mmu)
 	scrx := screen.New()
 	ppux := ppu.New(mmu, scrx)
+	apux := apu.NewAPU(mmu)
 
 	go func() {
 		for {
@@ -44,5 +46,6 @@ func main() {
 			ppux.Tick()
 		}
 	}()
+	apux.Start()
 	scrx.Start()
 }
