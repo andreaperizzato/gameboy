@@ -58,13 +58,30 @@ func (r Register) Get() uint8 {
 	return (v & r.mask) >> r.shift
 }
 
-// GetBit gets the value of the b-th bit of the register.
-// The mask is not applied.
-//
-// Deprecated: prefer to use a register with mask.
-func (r Register) GetBit(b uint8) bool {
-	v := r.mem.Read(r.Address)
-	return (v>>b)&0x01 == 0x01
+// RegisterBit provides a quick way to access a single bit of a register.
+type RegisterBit struct {
+	reg Register
+}
+
+// NewRegisterBit creates a new RegisterBit to access a single bit of a register.
+func NewRegisterBit(mem AddressSpace, addr uint16, bit uint8) RegisterBit {
+	return RegisterBit{
+		reg: NewRegisterWithMask(mem, addr, 1<<bit),
+	}
+}
+
+// Set sets the value of the register.
+func (r RegisterBit) Set(v bool) {
+	if v {
+		r.reg.Set(1)
+	} else {
+		r.reg.Set(0)
+	}
+}
+
+// Get gets the value of the register.
+func (r RegisterBit) Get() bool {
+	return r.reg.Get() == 1
 }
 
 // Register16 is a 16-bit register made up of two 8-bit registers.

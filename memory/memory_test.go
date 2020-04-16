@@ -14,9 +14,6 @@ func Test_Register(t *testing.T) {
 	r.Set(0xAA)
 	assert.Equal(t, uint8(0xAA), ram.Read(0x01))
 	assert.Equal(t, uint8(0xAA), r.Get())
-
-	r.Set(0b00100000)
-	assert.True(t, r.GetBit(5))
 }
 
 func Test_RegisterWithMask(t *testing.T) {
@@ -27,6 +24,20 @@ func Test_RegisterWithMask(t *testing.T) {
 	r.Set(0b101)
 	assert.Equal(t, uint8(0b101), r.Get())
 	assert.Equal(t, uint8(0b10100111), ram.Read(0x01))
+}
+
+func Test_RegisterBit(t *testing.T) {
+	ram := memory.NewRAM(3, 0)
+	r := memory.NewRegisterBit(ram, 0x01, 2)
+	ram.Write(0x01, 0b00000011)
+
+	r.Set(true)
+	assert.Equal(t, uint8(0b00000111), ram.Read(0x01))
+	assert.True(t, r.Get())
+
+	r.Set(false)
+	assert.Equal(t, uint8(0b00000011), ram.Read(0x01))
+	assert.False(t, r.Get())
 }
 
 func Test_Register16(t *testing.T) {

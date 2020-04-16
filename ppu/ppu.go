@@ -15,10 +15,6 @@ const (
 	vBlank
 )
 
-const (
-	lcdcDisplayEnabledBit = 7
-)
-
 // PPU is the Gameboy Picture Processing Unit.
 type PPU struct {
 	// state is the current state of the PPU.
@@ -41,25 +37,25 @@ type PPU struct {
 	scy memory.Register
 
 	// LDCD - LCD Control Register
-	lcdc memory.Register
+	lcdcEnabled memory.RegisterBit
 }
 
 // New creates anew PPU.
 func New(m memory.AddressSpace, screen Display) *PPU {
 	return &PPU{
-		Fetcher: NewFetcher(m),
-		Screen:  screen,
-		state:   oamSearch,
-		mem:     m,
-		ly:      memory.NewRegister(m, 0xFF44),
-		scy:     memory.NewRegister(m, 0xFF42),
-		lcdc:    memory.NewRegister(m, 0xFF40),
+		Fetcher:     NewFetcher(m),
+		Screen:      screen,
+		state:       oamSearch,
+		mem:         m,
+		ly:          memory.NewRegister(m, 0xFF44),
+		scy:         memory.NewRegister(m, 0xFF42),
+		lcdcEnabled: memory.NewRegisterBit(m, 0xFF40, 7),
 	}
 }
 
 // Tick advances the PPU state by one step.
 func (p *PPU) Tick() {
-	if !p.lcdc.GetBit(lcdcDisplayEnabledBit) {
+	if !p.lcdcEnabled.Get() {
 		return
 	}
 
@@ -113,7 +109,7 @@ func (p *PPU) Tick() {
 		// According to https://gbdev.io/pandocs/#lcdc-7-lcd-display-enable
 		// switching the display on and off can only be done when in VBlank.
 		wasOn := p.Screen.IsEnabled()
-		isOn := p.lcdc.GetBit(lcdcDisplayEnabledBit)
+		isOn := p.lcdcEnabled.Get()
 		if wasOn && !isOn {
 			// Turn off.
 			p.Screen.Enable(false)
