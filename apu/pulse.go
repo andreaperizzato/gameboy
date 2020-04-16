@@ -15,7 +15,7 @@ type Pulse struct {
 	Envelope  memory.Register
 	Volume    memory.Register
 	Duty      memory.Register
-	Restart   memory.Register
+	Restart   memory.RegisterBit
 
 	waveT time.Duration
 	envT  time.Duration
@@ -76,11 +76,11 @@ func (p *Pulse) Stream(samples [][2]float64) (n int, ok bool) {
 		}
 
 		// When the restart flag is set, we need to start the sound again.
-		if p.Restart.Get() == 1 {
+		if p.Restart.Get() {
 			p.envT = 0
 			p.waveT = 0
 			p.vol = int(p.Volume.Get())
-			p.Restart.Set(0)
+			p.Restart.Set(false)
 		}
 	}
 	return len(samples), true

@@ -26,7 +26,7 @@ func NewAPU(mem memory.AddressSpace) *APU {
 		Frequency:  memory.NewRegister16WithMask(mem, 0xFF13, 0xFF14, 0x07),
 		Envelope:   memory.NewRegisterWithMask(mem, 0xFF12, 0x07),
 		Volume:     memory.NewRegisterWithMask(mem, 0xFF12, 0xF0),
-		Restart:    memory.NewRegisterWithMask(mem, 0xFF14, 0x80),
+		Restart:    memory.NewRegisterBit(mem, 0xFF14, 7),
 	}
 	return &APU{
 		pulse1: pulse1,
