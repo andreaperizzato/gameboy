@@ -11,7 +11,7 @@ func inc8(reg reg8) runnable {
 
 func inc16(reg reg16) runnable {
 	return func(c *CPU) uint8 {
-		// Flags: Z 0 H -
+		// Flags: - - - -
 		set, get := reg(c)
 		set(get() + 1)
 		return 8
@@ -24,6 +24,15 @@ func dec8(reg reg8) runnable {
 		set, get := reg(c)
 		set(sub(c, get(), 1, true))
 		return 4
+	}
+}
+
+func dec16(reg reg16) runnable {
+	return func(c *CPU) uint8 {
+		// Flags: - - - -
+		set, get := reg(c)
+		set(get() - 1)
+		return 8
 	}
 }
 
@@ -154,6 +163,24 @@ func add16Ref(reg reg16) runnable {
 	}
 }
 
+// add16 implements instructions like 'ADD HL,BC',
+// adding to HL the value of BC.
+func add16(dst reg16, src reg16) runnable {
+	return func(c *CPU) uint8 {
+		// Flags: - 0 H C
+		c.flags.N = false
+
+		_, getSrc := src(c)
+		setDst, getDst := dst(c)
+		a := getSrc()
+		b := getDst()
+		c.flags.C = uint32(a)+uint32(b) > 0xFFFF
+		c.flags.H = a&0x0F00+b&0x0F00 == 0x1000
+		setDst(a + b)
+		return 8
+	}
+}
+
 func xor8(reg reg8) runnable {
 	return func(c *CPU) uint8 {
 		// Flags: Z 0 0 0
@@ -239,7 +266,7 @@ func bit8(pos uint8, reg reg8) runnable {
 }
 
 // rl8 implements instuctions like 'RL A'.
-// Rotates A through the carry flag.
+// Rotates A to the left through the carry flag.
 func rl8(reg reg8) runnable {
 	return func(c *CPU) uint8 {
 		// Flags: Z 0 0 C
@@ -257,6 +284,64 @@ func rl8(reg reg8) runnable {
 		c.flags.Z = res == 0
 		set(res)
 		return 8
+	}
+}
+
+// rr8 implements instuctions like 'RR A'.
+// Rotates A to the right through the carry flag.
+func rr8(reg reg8) runnable {
+	return func(c *CPU) uint8 {
+		// Flags: Z 0 0 C
+		c.flags.N = false
+		c.flags.H = false
+
+		set, get := reg(c)
+		v := get()
+		res := v >> 1
+		if c.flags.C {
+			res |= 0x80
+		}
+		// If the 1st bit was set, carry will happen.
+		c.flags.C = v&(0x01) > 0
+		c.flags.Z = res == 0
+		set(res)
+		return 8
+	}
+}
+
+// rlc8 implements instuctions like 'RLCA'.
+// Rotates A to the left with bit 7 being moved to bit 0 and also stored into the carry.
+func rlc8(reg reg8) runnable {
+	return func(c *CPU) uint8 {
+		// Flags: 0 0 0 C
+		c.flags.Z = false
+		c.flags.N = false
+		c.flags.H = false
+
+		set, get := reg(c)
+		v := get()
+		carry := (v & 0x80) >> 7
+		c.flags.C = carry == 1
+		set(v<<1 | carry)
+		return 4
+	}
+}
+
+// rrc8 implements instuctions like 'RRCA'.
+// Rotates A to the right with bit 0 being moved to bit 7 and also stored into the carry.
+func rrc8(reg reg8) runnable {
+	return func(c *CPU) uint8 {
+		// Flags: 0 0 0 C
+		c.flags.Z = false
+		c.flags.N = false
+		c.flags.H = false
+
+		set, get := reg(c)
+		v := get()
+		carry := (v & 0x01)
+		c.flags.C = carry == 1
+		set(v>>1 | carry<<7)
+		return 4
 	}
 }
 
@@ -289,6 +374,32 @@ func sub(c *CPU, a, b uint8, ignoreCarry bool) uint8 {
 	res := a - b
 	c.flags.Z = res == 0
 	return res
+}
+
+func nop() runnable {
+	return func(c *CPU) uint8 {
+		return 4
+	}
+}
+
+func stop() runnable {
+	return func(c *CPU) uint8 {
+		// Stop will put the CPU in low power mode
+		// and there is nothing to do here.
+		_ = nextArg(c) // stop has one ignored arg.
+		return 4
+	}
+}
+
+func ld16ConstRefSP() runnable {
+	return func(c *CPU) uint8 {
+		low := nextArg(c)
+		high := nextArg(c)
+		addr := uint16(low) | uint16(high)<<8
+		c.mem.Write(addr, uint8(c.regs.SP))
+		c.mem.Write(addr+1, uint8(c.regs.SP>>8))
+		return 20
+	}
 }
 
 func nextArg(c *CPU) uint8 {

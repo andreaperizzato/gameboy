@@ -65,6 +65,18 @@ func TestInstructions_dec8(t *testing.T) {
 	}
 }
 
+func TestInstructions_dec16(t *testing.T) {
+	c := &CPU{}
+	c.regs.B, c.regs.C = 0x01, 0x00
+
+	cycles := dec16(regBC)(c)
+
+	assert.EqualValues(t, 8, cycles, "cycles")
+	// 0x0100 - 0x0001 = 0x00FF
+	assert.EqualValues(t, 0x00, c.regs.B, "B")
+	assert.EqualValues(t, 0xFF, c.regs.C, "C")
+}
+
 func TestInstructions_sub8(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -300,6 +312,36 @@ func TestInstructions_add16Ref(t *testing.T) {
 	}
 }
 
+func TestInstructions_add16(t *testing.T) {
+	tests := []struct {
+		name  string
+		a     uint16
+		b     uint16
+		res   uint16 // a + b
+		flags flags
+	}{
+		{"carry", 0xFF02, 0xA001, 0x9F03, flags{C: true}},
+		{"no carry", 0x0C01, 0x0A02, 0x1603, flags{}},
+		{"half carry", 0x0C10, 0x0420, 0x1030, flags{H: true}},
+		{"no half carry", 0x0C10, 0x0120, 0x0D30, flags{}},
+	}
+	for _, tC := range tests {
+		t.Run(tC.name, func(t *testing.T) {
+			c := &CPU{}
+			c.regs.H, c.regs.L = uint8(tC.a>>8), uint8(tC.a&0xFF)
+			c.regs.B, c.regs.C = uint8(tC.b>>8), uint8(tC.b&0xFF)
+
+			cycles := add16(regHL, regBC)(c)
+
+			res := uint16(c.regs.H)<<8 | uint16(c.regs.L)
+
+			assert.EqualValues(t, 8, cycles, "cycles")
+			assert.Equal(t, tC.res, res, "HL")
+			assert.Equal(t, tC.flags, c.flags, "flags")
+		})
+	}
+}
+
 func TestInstructions_xor8(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -495,6 +537,143 @@ func TestInstructions_rl8(t *testing.T) {
 			assert.Equal(t, tC.res, c.regs.H, "H")
 			assert.Equal(t, tC.flags, c.flags, "flags")
 		})
+	}
+}
+
+func TestInstructions_rr8(t *testing.T) {
+	tests := []struct {
+		name  string
+		v     uint8
+		carry bool
+		res   uint8
+		flags flags
+	}{
+		{"result is zero", 0x00, false, 0x00, flags{Z: true}},
+		{"result is not zero", 0b00000010, false, 0b00000001, flags{}},
+		{"carry was set", 0b10000000, true, 0b11000000, flags{}},
+		{"sets carry", 0b10000001, false, 0b01000000, flags{C: true}},
+	}
+	for _, tC := range tests {
+		t.Run(tC.name, func(t *testing.T) {
+			c := &CPU{}
+			c.flags = flags{false, true, true, tC.carry}
+			c.regs.H = tC.v
+
+			cycles := rr8(regH)(c)
+
+			assert.EqualValues(t, 8, cycles, "cycles")
+			assert.Equal(t, tC.res, c.regs.H, "H")
+			assert.Equal(t, tC.flags, c.flags, "flags")
+		})
+	}
+}
+
+func TestInstructions_nop(t *testing.T) {
+	c := &CPU{}
+	reg := c.regs
+	cycles := nop()(c)
+	assert.EqualValues(t, 4, cycles, "cycles")
+	assert.Equal(t, reg, c.regs, "registers")
+}
+
+func TestInstructions_stop(t *testing.T) {
+	c := &CPU{mem: make(simpleRAM, 0xFFFF)}
+	cycles := stop()(c)
+	assert.EqualValues(t, 4, cycles, "cycles")
+	assert.EqualValues(t, 0x01, c.regs.PC, "PC") // stop has one ignored arg.
+}
+
+func TestInstructions_ld16ConstRefSP(t *testing.T) {
+	mem := make(simpleRAM, 0xFFFF)
+	c := &CPU{mem: mem}
+	c.regs.PC = 0x1122
+	c.regs.SP = 0xAA02
+	mem[0x1122] = 0x44 // these values are the args of the instructions
+	mem[0x1123] = 0x55 // and we'll be used to set PC.
+	cycles := ld16ConstRefSP()(c)
+
+	assert.EqualValues(t, 20, cycles, "cycles")
+	assert.EqualValues(t, 0x02, mem[0x5544], "SP - low byte")
+	assert.EqualValues(t, 0xAA, mem[0x5544+1], "SP - high byte")
+}
+
+func TestInstructions_rlc8(t *testing.T) {
+	tests := []struct {
+		name  string
+		v     uint8
+		res   uint8
+		flags flags
+	}{
+		{"no carry", 0b00000011, 0b00000110, flags{}},
+		{"with carry", 0b11000000, 0b10000001, flags{C: true}},
+	}
+	for _, tC := range tests {
+		t.Run(tC.name, func(t *testing.T) {
+			c := &CPU{}
+			c.flags = flags{true, true, true, false}
+			c.regs.A = tC.v
+
+			cycles := rlc8(regA)(c)
+
+			assert.EqualValues(t, 4, cycles, "cycles")
+			assert.Equal(t, tC.res, c.regs.A, "A")
+			assert.Equal(t, tC.flags, c.flags, "flags")
+		})
+	}
+}
+
+func TestInstructions_rrc8(t *testing.T) {
+	tests := []struct {
+		name  string
+		v     uint8
+		res   uint8
+		flags flags
+	}{
+		{"no carry", 0b00001100, 0b00000110, flags{}},
+		{"with carry", 0b00000011, 0b10000001, flags{C: true}},
+	}
+	for _, tC := range tests {
+		t.Run(tC.name, func(t *testing.T) {
+			c := &CPU{}
+			c.flags = flags{true, true, true, false}
+			c.regs.A = tC.v
+
+			cycles := rrc8(regA)(c)
+
+			assert.EqualValues(t, 4, cycles, "cycles")
+			assert.Equal(t, tC.res, c.regs.A, "A")
+			assert.Equal(t, tC.flags, c.flags, "flags")
+		})
+	}
+}
+
+func TestAllOpcodesDefined(t *testing.T) {
+	// https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
+
+	// Base instruction set.
+	invalid := []uint16{0xD3, 0xE3, 0xE4, 0xF4, 0xCB, 0xDB, 0xEB, 0xEC, 0xFC, 0xDD, 0xDE, 0xDF}
+	skip := func(opcode uint16) bool {
+		for _, c := range invalid {
+			if opcode == c {
+				return true
+			}
+		}
+		return false
+	}
+	for opcode := uint16(0); opcode <= 0xFF; opcode++ {
+		if skip(opcode) {
+			continue
+		}
+		assert.NotNilf(t, gbcInstructions[opcode].run, "missing opcode 0x%04X", opcode)
+	}
+
+	// Extended instruction set.
+	for opcode := uint16(0); opcode <= 0xFF; opcode++ {
+		if skip(opcode) {
+			continue
+		}
+		exCode := 0xCB00 | opcode
+		assert.NotNilf(t, gbcInstructions[exCode].run, "missing opcode 0x%04X", exCode)
 	}
 }
 
