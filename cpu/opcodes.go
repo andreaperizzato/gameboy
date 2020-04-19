@@ -1,6 +1,7 @@
 package cpu
 
 var gbcInstructions = map[uint16]instruction{
+	// 0x
 	0x00: {"NOP", nop()},
 	0x01: {"LD BC,nn", ld16Const(regBC)},
 	0x02: {"LD (BC),A", ld16Ref8(regBC, regA, 0)},
@@ -11,12 +12,13 @@ var gbcInstructions = map[uint16]instruction{
 	0x07: {"RLCA", rlc8(regA)},
 	0x08: {"LD (nn),SP", ld16ConstRefSP()},
 	0x09: {"ADD HL,BC", add16(regHL, regBC)},
-	0x0A: {"LD A,(BC)", ld816Ref(regA, regBC)},
+	0x0A: {"LD A,(BC)", ld816Ref(regA, regBC, 0)},
 	0x0B: {"DEC BC", dec16(regBC)},
 	0x0C: {"INC C", inc8(regC)},
 	0x0D: {"DEC C", dec8(regC)},
 	0x0E: {"LD C,n", ld8Const(regC)},
 	0x0F: {"RRCA", rrc8(regA)},
+	// 1x
 	0x10: {"STOP", nop()}, // Stop updates the CPU state, nothing to do here.
 	0x11: {"LD DE,nn", ld16Const(regDE)},
 	0x12: {"LD (DE),A", ld16Ref8(regDE, regA, 0)},
@@ -27,19 +29,29 @@ var gbcInstructions = map[uint16]instruction{
 	0x17: {"RLA", rl8(regA)},
 	0x18: {"JR n", jr(nil, true)},
 	0x19: {"ADD HL,DE", add16(regHL, regDE)},
-	0x1A: {"LD A,(DE)", ld816Ref(regA, regDE)},
+	0x1A: {"LD A,(DE)", ld816Ref(regA, regDE, 0)},
 	0x1B: {"DEC DE", dec16(regDE)},
 	0x1C: {"INC E", inc8(regE)},
 	0x1D: {"DEC E", dec8(regE)},
 	0x1E: {"LD E,n", ld8Const(regE)},
 	0x1F: {"RRA", rr8(regA)},
+	// 2x
 	0x20: {"JR NZ,n", jr(flagZ, false)},
 	0x21: {"LD HL,nn", ld16Const(regHL)},
 	0x22: {"LD (HL+),A", ld16Ref8(regHL, regA, 1)},
 	0x23: {"INC HL", inc16(regHL)},
 	0x24: {"INC H", inc8(regH)},
+	0x25: {"DEC H", dec8(regH)},
+	0x26: {"LD H,n", ld8Const(regH)},
+	0x27: {"DAA", daa()},
 	0x28: {"JR Z,n", jr(flagZ, true)},
+	0x29: {"ADD HL,HL", add16(regHL, regHL)},
+	0x2A: {"LD A,(HL+)", ld816Ref(regA, regHL, 1)},
+	0x2B: {"DEC HL", dec16(regHL)},
+	0x2C: {"INC L", inc8(regL)},
+	0x2D: {"DEC L", dec8(regL)},
 	0x2E: {"LD L,n", ld8Const(regL)},
+	0x2F: {"CPL", cpl8(regA)},
 	0x30: {"JR NC,n", jr(flagC, false)},
 	0x31: {"LD SP,nn", ld16Const(regSP)},
 	0x32: {"LD (HL-),A", ld16Ref8(regHL, regA, -1)},

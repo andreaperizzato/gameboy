@@ -193,12 +193,15 @@ func TestInstructions_ld816Ref(t *testing.T) {
 	mem[0x1122] = 0x99
 	c := &CPU{mem: mem}
 	c.regs.D, c.regs.E = 0x11, 0x22
-	cycles := ld816Ref(regA, regDE)(c)
+	cycles := ld816Ref(regA, regDE, -1)(c)
 
 	assert.EqualValues(t, 8, cycles, "cycles")
 	// DE = 0x1122 at which the memory stores 0x99
 	// which is the value we expect in A.
 	assert.EqualValues(t, 0x99, c.regs.A, "A")
+	// DE should've been decremented by one.
+	assert.EqualValues(t, 0x11, c.regs.D, "D")
+	assert.EqualValues(t, 0x21, c.regs.E, "E")
 }
 
 func TestInstructions_ld16Ref8(t *testing.T) {
@@ -645,6 +648,17 @@ func TestInstructions_rrc8(t *testing.T) {
 			assert.Equal(t, tC.flags, c.flags, "flags")
 		})
 	}
+}
+
+func TestInstructions_cpl8(t *testing.T) {
+	c := &CPU{}
+	c.regs.C = 0b01010001
+	cycles := cpl8(regC)(c)
+
+	assert.EqualValues(t, 4, cycles, "cycles")
+	assert.EqualValues(t, 0b10101110, c.regs.C, "C")
+	assert.True(t, c.flags.H, "Flag H")
+	assert.True(t, c.flags.H, "Flag N")
 }
 
 func TestAllOpcodesDefined(t *testing.T) {

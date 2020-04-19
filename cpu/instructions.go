@@ -81,14 +81,16 @@ func jr(flag func(c *CPU) bool, condition bool) runnable {
 	}
 }
 
-// ld816Ref implements instructions such as LD A,(HL)
+// ld816Ref implements instructions such as LD A,(HL) and LD A,(HL+)
 // loading in A the byte in memory at the address pointed by HL.
-func ld816Ref(reg reg8, ptr reg16) runnable {
+func ld816Ref(reg reg8, ptr reg16, offset int16) runnable {
 	return func(c *CPU) uint8 {
-		_, getPtr := ptr(c)
+		setPtr, getPtr := ptr(c)
 		v := c.mem.Read(getPtr())
 		setReg, _ := reg(c)
 		setReg(v)
+		newPtr := uint16(int16(getPtr()) + offset)
+		setPtr(newPtr)
 		return 8
 	}
 }
@@ -345,6 +347,19 @@ func rrc8(reg reg8) runnable {
 	}
 }
 
+// Complement.
+func cpl8(reg reg8) runnable {
+	return func(c *CPU) uint8 {
+		// Flags: - 1 1 -
+		c.flags.N = true
+		c.flags.H = true
+
+		set, get := reg(c)
+		set(^get())
+		return 4
+	}
+}
+
 // add computes a+b and sets the flags accordingly.
 // when ignoreCarry is set, flag C is left as it is.
 func add(c *CPU, a, b uint8, ignoreCarry bool) uint8 {
@@ -399,6 +414,36 @@ func ld16ConstRefSP() runnable {
 		c.mem.Write(addr, uint8(c.regs.SP))
 		c.mem.Write(addr+1, uint8(c.regs.SP>>8))
 		return 20
+	}
+}
+
+// Decimal Adjust Accumulator to get a correct BCD representation after an arithmetic instruction.
+func daa() runnable {
+	return func(c *CPU) uint8 {
+		// Flags: Z - 0 C
+
+		// Implementation comes for here:
+		// https://forums.nesdev.com/viewtopic.php?t=15944
+
+		if !c.flags.Z {
+			if c.flags.C || c.regs.A > 0x99 {
+				c.regs.A += 0x60
+				c.flags.C = true
+			}
+			if c.flags.H || (c.regs.A&0x0F) > 0x09 {
+				c.regs.A += 0x06
+			}
+		} else {
+			if c.flags.C {
+				c.regs.A += 0x60
+			}
+			if c.flags.H {
+				c.regs.A -= 0x06
+			}
+		}
+		c.flags.Z = c.regs.A == 0
+		c.flags.H = false
+		return 4
 	}
 }
 
