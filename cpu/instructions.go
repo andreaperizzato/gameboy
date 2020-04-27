@@ -18,12 +18,34 @@ func inc16(reg reg16) runnable {
 	}
 }
 
+func inc16Ref(reg reg16) runnable {
+	return func(c *CPU) uint8 {
+		// Flags: Z 0 H -
+		_, get := reg(c)
+		addr := get()
+		v := add(c, c.mem.Read(addr), 1, true)
+		c.mem.Write(addr, v)
+		return 12
+	}
+}
+
 func dec8(reg reg8) runnable {
 	return func(c *CPU) uint8 {
 		// Flags: Z 1 H -
 		set, get := reg(c)
 		set(sub(c, get(), 1, true))
 		return 4
+	}
+}
+
+func dec16Ref(reg reg16) runnable {
+	return func(c *CPU) uint8 {
+		// Flags: Z 1 H -
+		_, get := reg(c)
+		addr := get()
+		v := sub(c, c.mem.Read(addr), 1, true)
+		c.mem.Write(addr, v)
+		return 12
 	}
 }
 
@@ -150,6 +172,15 @@ func ld88ConstRef(reg reg8) runnable {
 		v := c.mem.Read(0xFF00 + uint16(offset))
 		set, _ := reg(c)
 		set(v)
+		return 12
+	}
+}
+
+// ld16RefConst implements instructions as 'LD (HL),n'.
+func ld16RefConst(reg reg16) runnable {
+	return func(c *CPU) uint8 {
+		_, get := reg(c)
+		c.mem.Write(get(), nextArg(c))
 		return 12
 	}
 }
@@ -443,6 +474,28 @@ func daa() runnable {
 		}
 		c.flags.Z = c.regs.A == 0
 		c.flags.H = false
+		return 4
+	}
+}
+
+// Set carry flag.
+func scf() runnable {
+	return func(c *CPU) uint8 {
+		// Flags: - 0 0 1
+		c.flags.H = false
+		c.flags.N = false
+		c.flags.C = true
+		return 4
+	}
+}
+
+// Complementary carry flag.
+func ccf() runnable {
+	return func(c *CPU) uint8 {
+		// Flags: - 0 0 C
+		c.flags.H = false
+		c.flags.N = false
+		c.flags.C = !c.flags.C
 		return 4
 	}
 }

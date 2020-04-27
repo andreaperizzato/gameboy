@@ -41,6 +41,32 @@ func TestInstructions_inc16(t *testing.T) {
 	assert.Equal(t, uint8(0x00), c.regs.E, "value")
 }
 
+func TestInstructions_inc16Ref(t *testing.T) {
+	tests := []struct {
+		name    string
+		initalV uint8
+		finalV  uint8
+		flags   flags
+	}{
+		{"result is zero", 0xFF, 0x00, flags{Z: true, H: true}},
+		{"half carry", 0xAF, 0xB0, flags{H: true}},
+		{"no half carry", 0x0D, 0x0E, flags{}},
+	}
+	for _, tC := range tests {
+		t.Run(tC.name, func(t *testing.T) {
+			mem := make(simpleRAM, 0xFFFF)
+			c := &CPU{mem: mem}
+			c.regs.H, c.regs.L = 0x11, 0x22
+			mem[0x1122] = tC.initalV
+			cycles := inc16Ref(regHL)(c)
+
+			assert.EqualValues(t, 12, cycles, "cycles")
+			assert.Equal(t, tC.finalV, mem[0x1122], "value")
+			assert.Equal(t, tC.flags, c.flags, "flags")
+		})
+	}
+}
+
 func TestInstructions_dec8(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -75,6 +101,32 @@ func TestInstructions_dec16(t *testing.T) {
 	// 0x0100 - 0x0001 = 0x00FF
 	assert.EqualValues(t, 0x00, c.regs.B, "B")
 	assert.EqualValues(t, 0xFF, c.regs.C, "C")
+}
+
+func TestInstructions_dec16Ref(t *testing.T) {
+	tests := []struct {
+		name    string
+		initalV uint8
+		finalV  uint8
+		flags   flags
+	}{
+		{"result is zero", 0x01, 0x00, flags{Z: true, N: true}},
+		{"half carry", 0xF0, 0xEF, flags{H: true, N: true}},
+		{"no half carry", 0xF1, 0xF0, flags{N: true}},
+	}
+	for _, tC := range tests {
+		t.Run(tC.name, func(t *testing.T) {
+			mem := make(simpleRAM, 0xFFFF)
+			c := &CPU{mem: mem}
+			c.regs.H, c.regs.L = 0x11, 0x22
+			mem[0x1122] = tC.initalV
+			cycles := dec16Ref(regHL)(c)
+
+			assert.EqualValues(t, 12, cycles, "cycles")
+			assert.Equal(t, tC.finalV, mem[0x1122], "value")
+			assert.Equal(t, tC.flags, c.flags, "flags")
+		})
+	}
 }
 
 func TestInstructions_sub8(t *testing.T) {
@@ -283,6 +335,21 @@ func TestInstructions_ld88ConstRef(t *testing.T) {
 	// The arg is n=0x77 and mem[0xFF00+0x77] = 0x99.
 	// We expect the op to write 0x99 in E.
 	assert.EqualValues(t, 0x99, c.regs.E, "E")
+}
+
+func TestInstructions_ld16RefConst(t *testing.T) {
+	mem := make(simpleRAM, 0xFFFF)
+	c := &CPU{mem: mem}
+	c.regs.PC = 0x0011
+	mem[0x0011] = 0xAA
+	c.regs.D, c.regs.E = 0x11, 0x22
+
+	cycles := ld16RefConst(regDE)(c)
+
+	assert.EqualValues(t, 12, cycles, "cycles")
+	// The arg is n=0xAA and DE=0x1122.
+	// We expect the op to write 0xAA in memory at 0x1122.
+	assert.EqualValues(t, 0xAA, mem[0x1122])
 }
 
 func TestInstructions_add16Ref(t *testing.T) {
@@ -659,6 +726,44 @@ func TestInstructions_cpl8(t *testing.T) {
 	assert.EqualValues(t, 0b10101110, c.regs.C, "C")
 	assert.True(t, c.flags.H, "Flag H")
 	assert.True(t, c.flags.H, "Flag N")
+}
+
+func TestInstructions_scf(t *testing.T) {
+	c := &CPU{}
+	c.flags.H = true
+	c.flags.N = true
+	cycles := scf()(c)
+
+	assert.EqualValues(t, 4, cycles, "cycles")
+	assert.True(t, c.flags.C, "Flag C")
+	assert.False(t, c.flags.Z, "Flag Z")
+	assert.False(t, c.flags.N, "Flag N")
+	assert.False(t, c.flags.H, "Flag H")
+}
+
+func TestInstructions_ccf(t *testing.T) {
+	tests := []struct {
+		name string
+		v    bool
+	}{
+		{"was true", true},
+		{"was false", false},
+	}
+	for _, tC := range tests {
+		t.Run(tC.name, func(t *testing.T) {
+			c := &CPU{}
+			c.flags.H = true
+			c.flags.N = true
+			c.flags.C = tC.v
+			cycles := ccf()(c)
+
+			assert.EqualValues(t, 4, cycles, "cycles")
+			assert.Equal(t, !tC.v, c.flags.C, "Flag C")
+			assert.False(t, c.flags.Z, "Flag Z")
+			assert.False(t, c.flags.N, "Flag N")
+			assert.False(t, c.flags.H, "Flag H")
+		})
+	}
 }
 
 func TestAllOpcodesDefined(t *testing.T) {
